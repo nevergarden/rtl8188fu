@@ -3486,7 +3486,15 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 	enum tx_power_setting type, int dbm)
 #endif
 {
-#if 0
+#if 1
+	_adapter *padapter = wiphy_to_adapter(wiphy);
+	int dbm = MBM_TO_DBM(mbm);
+
+	if (dbm > 18)
+		dbm = 18;
+	padapter->mppriv.txpoweridx = (u8)dbm;
+	SetTxPower(padapter);
+#elif 0
 	struct iwm_priv *iwm = wiphy_to_iwm(wiphy);
 	int ret;
 
@@ -3512,7 +3520,6 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 		return -EOPNOTSUPP;
 	}
 #endif
-	DBG_8192C("%s\n", __func__);
 	return 0;
 }
 
@@ -3522,10 +3529,9 @@ static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
 #endif
 	int *dbm)
 {
-	DBG_8192C("%s\n", __func__);
+	_adapter *padapter = wiphy_to_adapter(wiphy);
 
-	*dbm = (12);
-	
+	*dbm = padapter->mppriv.txpoweridx;
 	return 0;
 }
 
@@ -4346,7 +4352,11 @@ static int cfg80211_rtw_change_beacon(struct wiphy *wiphy, struct net_device *nd
 	return ret;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 2)
 static int cfg80211_rtw_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
+#else
+static int cfg80211_rtw_stop_ap(struct wiphy *wiphy, struct net_device *ndev, unsigned int link_id)
+#endif
 {
 	DBG_871X(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
 	return 0;
@@ -6847,7 +6857,11 @@ void rtw_wdev_unregister(struct wireless_dev *wdev)
 	rtw_cfg80211_indicate_scan_done(adapter, _TRUE);
 
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 2)
 	if (wdev->current_bss) {
+	#else
+	if (wdev->connected) {
+	#endif
 		u8 locally_generated = 1;
 		DBG_871X(FUNC_ADPT_FMT" clear current_bss by cfg80211_disconnected\n", FUNC_ADPT_ARG(adapter));
 		cfg80211_disconnected(adapter->pnetdev, 0, NULL, 0, locally_generated, GFP_ATOMIC);
